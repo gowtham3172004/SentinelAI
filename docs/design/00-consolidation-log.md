@@ -12,7 +12,7 @@ Version 1.1-draft · 2026-10-31 · Status: **for review**
    - **C**: clarifies or resolves a contradiction, with equivalent or stronger guarantees.
    - **A**: an addition.
 
-   A change labelled **W** (weakens) would need an explicit owner decision. **There are none.**
+   A change labelled **W** (weakens) needs an explicit owner decision. **The only W changes are the deferrals approved under OD-16 (ADR-023).**
 
 ## 0.2 Owner decisions taken (2026-10-31)
 
@@ -33,6 +33,7 @@ Version 1.1-draft · 2026-10-31 · Status: **for review**
 | OD-13 | Explicit failure-recovery and reliability requirements for Sentinel itself | 07 |
 | OD-14 (2026-10-31) | **No GPU available.** Local inference is CPU-only with small models (fast-tier experiments). Strong-tier and judge calls rely on free API tiers. | 08 §2, 10 §7 OI-01 |
 | OD-15 (2026-10-31) | **Terminal-first and cross-platform.** The `sentinelai` CLI runs natively on Windows, Linux and macOS for everything except sandboxed execution, which needs a Linux host (04 §5). The P0-12 provider probe is built as product code (`sentinelai providers probe`) instead of a throwaway spike. Dev tasks run through `uv run …` (cross-platform) instead of a Makefile. | 13 §5 |
+| OD-16 (2026-11-03) | **Pragmatic scope:** become usable end to end first; keep safety-critical controls; replace or defer enterprise infrastructure (multi-tenant admin, multi-signer attestation, passkeys, managed canary, PITR, notification platform). Explicit owner-approved deferrals (direction W) are listed in ADR-023. | ADR-023, 09 §0 |
 
 ## 0.3 Review findings and their disposition
 
