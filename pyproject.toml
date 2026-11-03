@@ -1,0 +1,114 @@
+[project]
+name = "sentinelai"
+version = "0.1.0"
+description = "Evidence-driven production reliability engineer: detects, investigates, reproduces and prepares human-approved fixes."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [
+    { name = "gowtham3172004", email = "gowtham3172004@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "httpx>=0.27",
+    "platformdirs>=4.2",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "typer>=0.12",
+]
+
+[project.scripts]
+sentinelai = "sentinelai.cli.main:run"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "import-linter>=2.0",
+    "mypy>=1.11",
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "types-PyYAML>=6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------- tooling
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "S", "SIM", "RUF", "PL", "PT", "TID", "ASYNC"]
+ignore = ["PLR0913", "PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "PLR0915"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-ra", "--strict-markers", "-m", "not live"]
+markers = [
+    "at(id): links a test to an acceptance-test ID from docs/design/11-definition-of-done.md",
+    "live: calls real model providers with real keys; opt-in (SENTINELAI_LIVE_TESTS=1, -m live)",
+]
+
+[tool.coverage.run]
+source = ["sentinelai"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# Architecture rules from docs/design/01-architecture.md §3.2 (D2 §3.3).
+[tool.importlinter]
+root_package = "sentinelai"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layering: cli > apps > config > adapters > services > domain"
+type = "layers"
+layers = [
+    "sentinelai.cli",
+    "sentinelai.apps",
+    "sentinelai.config",
+    "sentinelai.adapters",
+    "sentinelai.services",
+    "sentinelai.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain stays pure: no I/O or presentation libraries"
+type = "forbidden"
+source_modules = ["sentinelai.domain"]
+forbidden_modules = ["httpx", "typer", "rich", "platformdirs", "yaml", "pydantic_settings"]
+
+[[tool.importlinter.contracts]]
+name = "Services depend on ports, not on I/O libraries"
+type = "forbidden"
+source_modules = ["sentinelai.services"]
+forbidden_modules = ["httpx", "typer", "rich", "platformdirs", "yaml", "pydantic_settings"]

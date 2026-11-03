@@ -1,0 +1,10 @@
+Sentinel AI
+Copyright 2026 The Sentinel AI authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party components are used under their own licences. A complete,
+generated licence report is produced in CI (docs/design/08-external-dependencies.md §3).
+Components used as unmodified libraries under weak-copyleft licences are listed here:
+
+- (none yet)

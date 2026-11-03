@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Secrets: never commit. Real secrets live in the user config directory
+# (see `sentinelai config path`), not in the repository.
+.env
+.env.*
+!.env.example
+secrets.env
+*.pem
+*.key
+
+# Local artefacts
+/out/
+/spikes/**/results/
