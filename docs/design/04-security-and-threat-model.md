@@ -130,3 +130,8 @@ These are carried in the risk register, 10 §6.
 5. An adversarial patch subverting test reporting in ways not anticipated (D2 §15.8).
 6. A WSL2 shared kernel, if the owner accepts it for development.
 7. Side channels on a shared sandbox host across tenants. **Mitigation:** silo deployments or per-tenant sandbox hosts for sensitive tenants.
+8. **The tenant context is not an authentication boundary** (confirmed while implementing migration 0001). Row-level security compares rows against `sentinel.tenant_id`, which any SQL client on a connection can set for itself.
+   - **What RLS protects against:** application bugs, such as a missing `WHERE`, a wrong ID, or a context that was never set (fails closed, AT-TEN-02).
+   - **What it doesn't protect against:** a compromised service process, which can switch to any tenant on its own connection.
+   - **Isolation against a compromised process** requires per-tenant database credentials or silo deployment.
+   - **Candidate V1 hardening:** set the context only through a SECURITY DEFINER function that verifies a short-lived, API-signed tenant token, with policies reading from a session table only that function can write. That needs an ADR and measurement before adoption.

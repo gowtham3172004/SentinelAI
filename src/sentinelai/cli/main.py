@@ -16,6 +16,7 @@ from rich.table import Table
 from sentinelai import __version__
 from sentinelai.apps.wiring import Context
 from sentinelai.cli import doctor as doctor_checks
+from sentinelai.cli.db import audit_app, db_app
 from sentinelai.config.providers import RegistryError
 from sentinelai.config.settings import Settings
 from sentinelai.domain.llm import ChatMessage, CompletionRequest, ProviderError, Role
@@ -32,6 +33,8 @@ providers_app = typer.Typer(help="Model providers: list, probe and try.", no_arg
 config_app = typer.Typer(help="Configuration and secrets files.", no_args_is_help=True)
 app.add_typer(providers_app, name="providers")
 app.add_typer(config_app, name="config")
+app.add_typer(db_app, name="db")
+app.add_typer(audit_app, name="audit")
 
 console = Console(highlight=False)
 err_console = Console(stderr=True, highlight=False)

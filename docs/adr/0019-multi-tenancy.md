@@ -25,6 +25,7 @@ Sentinel must be deployable for several teams or customers. Retrofitting tenancy
 - **Negative:**
   - Every transaction must carry tenant context.
   - RLS overhead on hot paths must be measured (RK-05).
+  - The tenant context is a session setting, so RLS guards against application bugs, not against a compromised service process (residual risk 8 in design/04 §9; per-tenant credentials or silo deployment for that threat).
 
 ## Alternatives considered
 - Schema per tenant: rejected for migration fan-out.

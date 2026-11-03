@@ -7,4 +7,5 @@ Third-party components are used under their own licences. A complete,
 generated licence report is produced in CI (docs/design/08-external-dependencies.md §3).
 Components used as unmodified libraries under weak-copyleft licences are listed here:
 
-- (none yet)
+- psycopg 3 (LGPL-3.0-only), used unmodified as a dynamically imported library.
+  Source: https://github.com/psycopg/psycopg

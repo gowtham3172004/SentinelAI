@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     secrets_file: Path | None = None
     providers_file: Path | None = None
     database_url: SecretStr | None = None
+    # Migrations and audit verification: an owner/administrator connection, never a service's.
+    admin_database_url: SecretStr | None = None
     http_timeout_s: float = Field(default=60.0, gt=0, le=600)
 
     @property
