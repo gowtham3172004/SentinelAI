@@ -1,0 +1,25 @@
+# Ground truth for evaluation only. Never visible to Sentinel (design/04 TB-9).
+class: code_defect
+acceptable_classes: [code_defect, regression_from_release]
+remediation: code_patch
+code_patch_appropriate: true
+root_cause: >-
+  Release v1.1.0 refactored normalize_customer_note() and removed the None guard; it now
+  calls .strip() on the optional customer_note, so every order created without a note raises
+  AttributeError and returns HTTP 500. Orders with a note are unaffected.
+locations:
+  - {path: shop/orders/normalize.py, symbol: normalize_customer_note}
+key_facts:
+  - The failure started with release v1.1.0 (first seen after the deploy).
+  - Only POST /orders requests without customer_note fail; requests with a note succeed.
+  - "Exception: AttributeError: 'NoneType' object has no attribute 'strip'."
+  - The API contract declares customer_note optional.
+signature:
+  kind: exception
+  exception_type: AttributeError
+  function: normalize_customer_note
+  path: shop/orders/normalize.py
+  route: POST /orders
+  status_code: 500
+reference_fix: reference_fix.patch
+hidden_tests: hidden_tests/

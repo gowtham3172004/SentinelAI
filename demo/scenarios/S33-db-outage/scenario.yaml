@@ -1,0 +1,19 @@
+id: S33
+version: 1
+title: Shop database becomes unreachable
+category: infrastructure
+class: infrastructure
+wave: 1
+split: dev
+expected_outcome: report_only    # escalated_insufficient_evidence is also acceptable
+signature_kind: exception
+reproducible: true
+abstention_expected: true        # no code patch is appropriate
+fault:
+  type: outage
+  stop_services: [shop-db]
+  test_database_url: "postgresql+psycopg://shop:unused@127.0.0.1:9/shop"  # closed port
+traffic: {seed: 7, count: 200}
+red_herrings: []
+injection: null
+ground_truth_ref: ground_truth.yaml

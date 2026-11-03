@@ -36,5 +36,62 @@ services:
       - "127.0.0.1:4318:4318"   # OTLP/HTTP
       - "127.0.0.1:13133:13133" # health_check extension
 
+  # ------------------------------------------------------------------ demo target (profile demo)
+  # The observed "shop" system. Run `uv run python demo/democtl.py init` first; see demo/README.md.
+  shop-db:
+    profiles: ["demo"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop-demo-only   # throwaway demo database; internal network only
+      POSTGRES_DB: shop
+    tmpfs: ["/var/lib/postgresql/data"]   # every restart starts from empty, known state
+    networks: [demo]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  payment-stub:
+    profiles: ["demo"]
+    build: ./demo/app
+    image: sentinelai-demo-shop:dev
+    restart: unless-stopped
+    command: ["uvicorn", "shop.payment_stub:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ./.demo/shop-repo:/app:ro
+    networks: [demo]
+
+  shop-api:
+    profiles: ["demo"]
+    build: ./demo/app
+    image: sentinelai-demo-shop:dev
+    restart: unless-stopped
+    depends_on:
+      shop-db: {condition: service_healthy}
+      payment-stub: {condition: service_started}
+    env_file:
+      - path: ./.demo/runtime/shop.env    # version, git sha, config (written by democtl)
+        required: false
+    environment:
+      SHOP_DATABASE_URL: postgresql+psycopg://shop:shop-demo-only@shop-db:5432/shop
+      SHOP_PAYMENT_URL: http://payment-stub:8000
+    volumes:
+      - ./.demo/shop-repo:/app:ro         # code = the generated git repo's checkout
+      - ./.demo/logs:/var/log/shop        # JSON logs for ingestion
+    ports:
+      - "127.0.0.1:8080:8000"
+    networks: [demo]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+networks:
+  demo: {}
+
 volumes:
   pgdata:

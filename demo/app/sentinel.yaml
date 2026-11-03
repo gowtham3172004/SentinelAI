@@ -1,0 +1,23 @@
+# Sentinel AI target configuration (docs/design/06 Appendix C.1). Any project adopting
+# Sentinel provides one of these; nothing in Sentinel is specific to this demo.
+version: 1
+service: shop-api
+source_roots: [shop/]
+tests_root: tests/
+regression_test_dir: tests/sentinel/
+endpoints:
+  - {method: POST, path: /orders, tier: 0}
+  - {method: POST, path: "/orders/{order_id}/pay", tier: 0}
+  - {method: GET, path: /orders, tier: 1}
+  - {method: GET, path: "/orders/{order_id}", tier: 1}
+sensitive_modules: ["shop/payments.py"]
+commands:
+  type_checker: none
+scope_policy:
+  max_files_changed: 3
+  max_changed_lines: 60
+gates:
+  required: [G06, G07]
+delivery:
+  mode: pr_only
+  monitoring_window_min: 30

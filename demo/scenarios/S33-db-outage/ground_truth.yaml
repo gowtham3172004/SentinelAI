@@ -1,0 +1,20 @@
+# Ground truth for evaluation only. Never visible to Sentinel (design/04 TB-9).
+class: infrastructure
+acceptable_classes: [infrastructure]
+remediation: infra_escalation
+code_patch_appropriate: false
+root_cause: >-
+  The shop PostgreSQL instance is down. Every endpoint that touches the database fails with
+  sqlalchemy.exc.OperationalError (connection refused) and returns HTTP 503; /readyz reports the
+  database down. There is no release or configuration change; the application code is correct.
+locations: []
+key_facts:
+  - Errors span all database-backed endpoints, not one code path.
+  - "Exception: sqlalchemy.exc.OperationalError (connection refused), raised inside the database driver; application frames appear only as callers."
+  - /readyz reports database down; /healthz stays up.
+  - No release or configuration event precedes the onset.
+signature:
+  kind: exception
+  exception_type: sqlalchemy.exc.OperationalError
+  status_code: 503
+recommended_action: Restore database availability (check the instance, network and credentials).
