@@ -1,0 +1,138 @@
+# Authority matrix: single source of truth for database write authority (02 section 5).
+#
+# A database acceptance test (AT-DB-02) checks every (role, table, privilege) cell against the
+# migrated database, plus each table's RLS mode. Any drift between this file and the
+# migrations fails CI. Changing authority = edit this file + write a migration.
+#
+# scope:  platform     no tenant column semantics, no RLS (IDs-only payloads for queue tables)
+#         tenant       tenant_id NOT NULL, RLS ENABLED + FORCED, policy tenant_isolation
+#         audit_chain  RLS ENABLED (not forced, so the SECURITY DEFINER writer sees all chains)
+# Rules enforced by the loader: no TRUNCATE for any role; insert_only tables get no UPDATE or
+# DELETE; audit_chain tables get SELECT at most (writes only through functions).
+version: 1
+
+roles:
+  - r_telemetry
+  - r_api
+  - r_orch
+  - r_codeintel
+  - r_broker
+  - r_deployer
+  - r_harness
+  - r_maint
+  - r_readonly
+
+tables:
+  tenants:
+    scope: platform
+    grants:
+      r_telemetry: [select]
+      r_api: [select, insert, update]
+      r_orch: [select]
+      r_codeintel: [select]
+      r_broker: [select]
+      r_deployer: [select]
+      r_harness: [select]
+      r_maint: [select]
+      r_readonly: [select]
+
+  users:
+    scope: platform
+    grants:
+      r_api: [select, insert, update]
+      r_orch: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  tenant_memberships:
+    scope: platform
+    grants:
+      r_api: [select, insert, update, delete]
+      r_orch: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  services:
+    scope: tenant
+    grants:
+      r_telemetry: [select]
+      r_api: [select, insert, update]
+      r_orch: [select]
+      r_codeintel: [select]
+      r_broker: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  repositories:
+    scope: tenant
+    grants:
+      r_telemetry: [select]
+      r_api: [select, insert, update]
+      r_orch: [select]
+      r_codeintel: [select]
+      r_broker: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  repo_revisions:
+    scope: tenant
+    insert_only: true
+    grants:
+      r_telemetry: [select]
+      r_api: [select]
+      r_orch: [select]
+      r_codeintel: [select, insert]
+      r_broker: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  release_events:
+    scope: tenant
+    insert_only: true
+    grants:
+      r_telemetry: [select, insert]
+      r_api: [select]
+      r_orch: [select]
+      r_codeintel: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+
+  audit_log:
+    scope: audit_chain
+    insert_only: true
+    grants:
+      r_readonly: [select]
+
+  jobs:
+    scope: platform
+    sequence: jobs_id_seq
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select, insert, update]
+      r_orch: [select, insert, update]
+      r_codeintel: [select, insert, update]
+      r_broker: [select, insert, update]
+      r_deployer: [select, insert, update]
+      r_maint: [select, update]
+      r_readonly: [select]
+
+  outbox_events:
+    scope: platform
+    sequence: outbox_events_id_seq
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select, insert, update]
+      r_orch: [select, insert, update]
+      r_codeintel: [select, insert, update]
+      r_broker: [select, insert, update]
+      r_deployer: [select, insert, update]
+      r_maint: [select, update]
+      r_readonly: [select]
+
+functions:
+  "current_tenant()":
+    [r_telemetry, r_api, r_orch, r_codeintel, r_broker, r_deployer, r_harness, r_maint, r_readonly]
+  "audit_append(text, text, text, text, text, jsonb)":
+    [r_telemetry, r_api, r_orch, r_codeintel, r_broker, r_deployer]
+  "audit_append_platform(text, text, text, text, text, jsonb)":
+    [r_api, r_maint]
