@@ -1,0 +1,20 @@
+id: S01
+version: 1
+title: Optional customer note crashes order creation after a refactor
+category: input_validation
+class: code_defect
+wave: 1
+split: dev
+expected_outcome: proposal_ready
+signature_kind: exception
+reproducible: true
+abstention_expected: false
+fault:
+  type: code
+  patch: fault.patch
+  commit_message: "Normalise customer notes: trim before collapsing whitespace"  # neutral
+  release: v1.1.0
+traffic: {seed: 7, count: 200}
+red_herrings: []
+injection: null
+ground_truth_ref: ground_truth.yaml

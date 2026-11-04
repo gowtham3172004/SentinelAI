@@ -67,6 +67,7 @@ These are deliberately deferred: the reference app (Phase 1), telemetry ingest, 
 | 2026-11-03 | P0-08 `audit verify` CLI | **Done** | `sentinelai audit verify [--chain] [--json]`, exit 1 on the first broken row |
 | 2026-11-03 | P0-10 Tenancy plumbing | **Done** | `tenant_transaction` / `system_transaction` (transaction-local context; refuse to nest) |
 | 2026-11-03 | P0-09 Queue and outbox code | **Done** | `adapters/db/queue.py`: enqueue (dedupe, IDs-only payloads), SKIP LOCKED claim, lease, heartbeat, reaper with `job.dead` alert, worker with graceful stop; outbox with at-least-once dispatch and NOTIFY-on-commit. AT-Q-01 (16 workers × 10,000 jobs, no double claim, 17 s), AT-Q-02/03/04 pass. |
+| 2026-11-04 | Lean MVP increment 2: demo target | **Done** | `demo/`: shop service (FastAPI, Postgres, payment stub), structured JSON logs + W3C trace context, `democtl` (deterministic repo, inject/reset, seeded traffic, release events), scenarios S01 code / S22 config / S33 infrastructure with ground truth. AT-DEMO-01..08 pass (13 tests); live Compose run matches the expected failure patterns. |
 
 ## 6. Order of the first increments after approval
 

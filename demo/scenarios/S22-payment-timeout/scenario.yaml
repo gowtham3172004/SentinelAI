@@ -1,0 +1,20 @@
+id: S22
+version: 1
+title: Payment client timeout misconfigured to one millisecond
+category: configuration
+class: configuration
+wave: 1
+split: dev
+expected_outcome: report_only
+signature_kind: status_code
+reproducible: true
+abstention_expected: true        # no code patch is appropriate
+fault:
+  type: config
+  env: {SHOP_PAYMENT_TIMEOUT_S: "0.001"}
+  baseline_env: {SHOP_PAYMENT_TIMEOUT_S: "2.0"}
+  change_summary: "payment client timeout tuned for latency"  # neutral
+traffic: {seed: 7, count: 200}
+red_herrings: []
+injection: null
+ground_truth_ref: ground_truth.yaml

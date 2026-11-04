@@ -31,6 +31,7 @@ sentinelai = "sentinelai.cli.main:run"
 
 [dependency-groups]
 dev = [
+    "fastapi>=0.115",
     "hypothesis>=6.100",
     "import-linter>=2.0",
     "mypy>=1.11",
@@ -39,6 +40,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "types-PyYAML>=6.0",
+    "uvicorn>=0.30",
 ]
 
 [build-system]
@@ -59,6 +61,12 @@ ignore = ["PLR0913", "PLR2004"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "PLR0915", "PLR0917"]
+"demo/app/tests/**" = ["S101"]
+"demo/scenarios/**" = ["S101"]
+"demo/democtl.py" = ["T201", "PLR0912", "PLR0915"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sentinelai", "shop", "democtl", "tests"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -66,11 +74,13 @@ ban-relative-imports = "all"
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "demo/democtl.py", "demo/app/shop"]
+mypy_path = "demo:demo/app"
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "demo", "demo/app"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["-ra", "--strict-markers", "-m", "not live"]

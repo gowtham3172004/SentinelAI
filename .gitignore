@@ -31,3 +31,6 @@ secrets.env
 # Local artefacts
 /out/
 /spikes/**/results/
+
+# Generated demo workspace (target repo, runtime env, logs, events)
+/.demo/

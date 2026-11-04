@@ -1,0 +1,21 @@
+# Ground truth for evaluation only. Never visible to Sentinel (design/04 TB-9).
+class: configuration
+acceptable_classes: [configuration]
+remediation: config_change
+code_patch_appropriate: false
+root_cause: >-
+  A configuration change lowered SHOP_PAYMENT_TIMEOUT_S from 2.0 to 0.001 seconds. The payment
+  service answers in about 50 ms, so every POST /orders/{order_id}/pay times out and returns
+  HTTP 504. No code changed; reverting the setting resolves it.
+locations: []
+key_facts:
+  - A config_change event for shop-api precedes the first failure.
+  - Only the pay endpoint fails, with HTTP 504 and PaymentTimeoutError.
+  - The payment service itself is healthy (its latency is unchanged).
+  - No release or code change accompanies the onset.
+signature:
+  kind: status_code
+  route: POST /orders/{order_id}/pay
+  status_code: 504
+  exception_type: shop.payments.PaymentTimeoutError
+recommended_action: Revert SHOP_PAYMENT_TIMEOUT_S to its previous value (2.0 s).

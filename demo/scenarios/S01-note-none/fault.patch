@@ -1,0 +1,15 @@
+diff --git a/shop/orders/normalize.py b/shop/orders/normalize.py
+index fe2c41b..4b5f46b 100644
+--- a/shop/orders/normalize.py
++++ b/shop/orders/normalize.py
+@@ -6,8 +6,6 @@ MAX_NOTE_LENGTH = 500
+ 
+ 
+ def normalize_customer_note(note: str | None) -> str | None:
+-    """Collapse whitespace and cap the length. Missing or blank notes become ``None``."""
+-    if note is None:
+-        return None
+-    cleaned = " ".join(note.split())[:MAX_NOTE_LENGTH]
++    """Trim surrounding whitespace, collapse internal runs and cap the length."""
++    cleaned = " ".join(note.strip().split())[:MAX_NOTE_LENGTH]
+     return cleaned or None
