@@ -345,7 +345,7 @@ def upgrade() -> None:
     values = ", ".join(f"('{a}', '{b}', '{r}')" for a, b, r in TRANSITIONS)
     _run(
         # values come from the TRANSITIONS constant above, never from input
-        "INSERT INTO incident_transition_rules (from_status, to_status, actor_role) "  # noqa: S608
+        "INSERT INTO incident_transition_rules (from_status, to_status, actor_role) "  # noqa: S608  # nosec B608
         f"VALUES {values}",
         *(line for line in GRANTS_SQL.strip().splitlines() if line.strip()),
         "RESET ROLE",

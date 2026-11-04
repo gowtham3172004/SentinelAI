@@ -173,7 +173,12 @@ def classify_in_app(path: str, source_roots: Sequence[str]) -> bool:
         return False
     if not source_roots:
         return True  # no configuration: anything that is not clearly a library is the app's
-    return any(path.startswith(root.rstrip("/") + "/") or path == root for root in source_roots)
+    for root in source_roots:
+        clean = root.strip("/")
+        # A prefix (shop/x.py) or a path segment of an absolute deploy path (/app/shop/x.py).
+        if path.startswith(clean + "/") or path == clean or f"/{clean}/" in path:
+            return True
+    return False
 
 
 def parse_stack(

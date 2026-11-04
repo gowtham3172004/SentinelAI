@@ -370,6 +370,7 @@ class ChangeEvent:
     version: str
     occurred_at: datetime
     changed_keys: tuple[str, ...] = ()
+    ref: str | None = None  # storage id of the release event, if any
 
 
 @dataclass(frozen=True)

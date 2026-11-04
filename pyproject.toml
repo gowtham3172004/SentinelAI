@@ -15,6 +15,7 @@ classifiers = [
 ]
 dependencies = [
     "alembic>=1.13",
+    "fastapi>=0.115",
     "httpx>=0.27",
     "platformdirs>=4.2",
     "psycopg[binary]>=3.2",
@@ -24,6 +25,7 @@ dependencies = [
     "rich>=13.7",
     "sqlalchemy>=2.0",
     "typer>=0.12",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]
@@ -31,7 +33,6 @@ sentinelai = "sentinelai.cli.main:run"
 
 [dependency-groups]
 dev = [
-    "fastapi>=0.115",
     "hypothesis>=6.100",
     "import-linter>=2.0",
     "mypy>=1.11",
@@ -40,7 +41,6 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "types-PyYAML>=6.0",
-    "uvicorn>=0.30",
 ]
 
 [build-system]
@@ -64,6 +64,8 @@ ignore = ["PLR0913", "PLR2004"]
 "demo/app/tests/**" = ["S101"]
 "demo/scenarios/**" = ["S101"]
 "demo/democtl.py" = ["T201", "PLR0912", "PLR0915"]
+"src/sentinelai/cli/**" = ["PLR0917"]  # Typer commands: one parameter per CLI option
+"src/sentinelai/apps/ingest_api.py" = ["PLR0915"]  # FastAPI factory defines its routes
 
 [tool.ruff.lint.isort]
 known-first-party = ["sentinelai", "shop", "democtl", "tests"]
