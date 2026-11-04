@@ -60,6 +60,13 @@ These are deliberately deferred: the reference app (Phase 1), telemetry ingest, 
 | 2026-11-03 | Credential-exposure audit | **Done** | `tests/integration/test_credential_exposure.py` (AT-LLM-04): hostile echoing provider; no key in stdout, stderr, JSON, probe files, DEBUG logs or crash tracebacks. Two channels found and fixed (httpcore DEBUG response headers; Typer traceback locals). |
 | 2026-10-31 | P0-13 Licence | **Partial** | `LICENSE` (Apache-2.0 text from apache.org), `NOTICE`, `pip-audit` clean. The automated licence allow-list check is still to do. |
 | 2026-10-31 | P0-16 README and settings | **Partial** | README quickstart (all OSes); typed settings with per-user config directory; `sentinelai doctor` and `config init/path` |
+| 2026-11-03 | P0-04 Compose skeleton | **Done** | `docker-compose.yml` profile `core`: Postgres 16 + pgvector 0.8.7, OTel Collector; 127.0.0.1-only ports; password from git-ignored `.env`; restart policy (WSL idle VM stop observed) |
+| 2026-11-03 | P0-05 Domain enums | **Done** | `sentinelai.domain.enums`; database-equality test passes |
+| 2026-11-03 | P0-06 Authority matrix | **Done** | `adapters/db/authority.yaml` + validated loader + generator; AT-DB-02 checks every cell against the live DB |
+| 2026-11-03 | P0-07 Migration 0001 | **Done** | Roles, enums, tenancy (FORCE RLS, fail-closed `current_tenant()`, composite FKs), audit chains, queue and outbox tables. AT-DB-01/02/03, AT-TEN-01/02/03 and AT-AUD-01/02/03 pass. 4 planted defects all caught. |
+| 2026-11-03 | P0-08 `audit verify` CLI | **Done** | `sentinelai audit verify [--chain] [--json]`, exit 1 on the first broken row |
+| 2026-11-03 | P0-10 Tenancy plumbing | **Done** | `tenant_transaction` / `system_transaction` (transaction-local context; refuse to nest) |
+| 2026-11-03 | P0-09 Queue and outbox code | **Pending** | Tables exist in 0001; claim, lease, reaper, dispatcher and NOTIFY are the next increment |
 
 ## 6. Order of the first increments after approval
 

@@ -75,6 +75,29 @@ uv run lint-imports           # architecture layering contracts
 
 Layering (enforced by import-linter): `cli > apps > config > adapters > services > domain`. `domain` is pure (no I/O) and is unit-testable without a model, database or Docker.
 
+### Database (PostgreSQL 16 + pgvector)
+
+```sh
+cp .env.example .env            # then set SENTINELAI_DEV_DB_PASSWORD (git-ignored file)
+docker compose --profile core up -d --wait     # on Windows: run inside WSL, e.g.
+#   wsl -d Ubuntu-24.04 --cd /mnt/d/PROJECTS/SentinelAI -- docker compose --profile core up -d --wait
+uv run pytest tests/db          # creates a throwaway database, migrates, tests, drops it
+```
+
+The database tests find the server through `SENTINELAI_TEST_ADMIN_URL`, or else through `.env`. Without either, they're skipped with a reason (CI always runs them).
+
+Migrations and audit verification use an administrator URL, which is never printed:
+
+```sh
+export SENTINELAI_ADMIN_DATABASE_URL=postgresql://postgres:...@127.0.0.1:55432/sentinel
+uv run sentinelai db upgrade      # one transaction per command
+uv run sentinelai db current
+uv run sentinelai audit verify    # recomputes every audit hash chain; exit 1 on tampering
+uv run sentinelai db grants-sql   # GRANTs generated from the authority matrix
+```
+
+**Windows + WSL2 note:** WSL stops its VM when idle, which stops Docker. The containers restart with Docker (restart policy). To keep the VM running, set `vmIdleTimeout=-1` under `[wsl2]` in `%UserProfile%/.wslconfig` (that is, `C:\Users\<you>\.wslconfig`).
+
 Docker, WSL2 and the Linux sandbox host are needed from Phase 1 and Phase 4. `sentinelai doctor` tells you what's missing.
 
 ## Documentation

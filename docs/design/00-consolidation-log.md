@@ -94,6 +94,9 @@ Finding IDs refer to the architecture review of 2026-10-31.
 | R-16 | D2 §2.3 moves the sandbox host to its own VM "in V1"; on a Windows workstation it must be separate from day one | S | A separate Linux sandbox host from Phase 0 (spike) and Phase 4 (production use) |
 | R-17 | D2 §14.1 asks for re-authentication via OIDC; GitHub OAuth can't enforce `max_age` | C | An OIDC provider with `max_age`/`prompt=login` in the MVP; passkey step-up in V1 |
 | R-18 | D2 §4 F9 and §3.1 use Redis for fan-out; nothing else in the control plane needs it | C | LISTEN/NOTIFY (ADR-022). One less control-plane dependency. |
+| R-19 | 02 §3 draft let the caller pass the audit chain ID | S | Chain derived from the tenant context; separate, restricted platform-chain function; appends refused outside READ COMMITTED (02 §6) |
+| R-20 | Tenancy helpers didn't define nesting behaviour | S | Scoped transactions refuse to nest (02 §6) |
+| R-21 | Tenant isolation was implicitly treated as a security boundary against a compromised service | C | Documented as a guard against bugs; per-tenant credentials or silo deployment for the stronger threat (04 §9 item 8) |
 
 ## 0.5 New requirements
 

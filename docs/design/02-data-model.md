@@ -244,7 +244,7 @@ CREATE TABLE provider_registry (
 -- metric_points becomes range-partitioned by day like log_events (retention per A7).
 ```
 
-## 5. Authority matrix (single source of truth: `db/authority.yaml`, generated in P0-06)
+## 5. Authority matrix (single source of truth: `src/sentinelai/adapters/db/authority.yaml`, P0-06)
 
 Key: S = select, I = insert, U = update, F = through a SECURITY DEFINER function only, – = none.
 
@@ -274,3 +274,22 @@ Key: S = select, I = insert, U = update, F = through a SECURITY DEFINER function
 | bench_truth schema | – | – | – | – | – | – | S | – | – |
 
 A generator turns this file into `GRANT` statements and **one test per cell** (AT-DB-02). Any drift between the file, the migration and the tests fails CI.
+
+## 6. Implementation notes: migration 0001 (2026-11-03)
+
+These refine sections 2–5 as implemented. Each is equal to or stronger than the draft above.
+
+| Topic | Draft | As implemented | Why |
+|---|---|---|---|
+| Audit chain selection | `audit_append(p_chain, …)` with a caller-supplied chain, checked against the context | `audit_append(…)` **derives** the chain from `current_tenant()` and rejects the zero UUID and unknown tenants. `audit_append_platform(…)` is a separate function, executable only by `r_api` and `r_maint`. | The caller can't pick a chain, and platform-chain writes have their own grant |
+| Chain forking | Not addressed | Appends are refused outside READ COMMITTED (SQLSTATE 25001) | Under REPEATABLE READ a stale snapshot could read an old head hash and fork the chain |
+| Shared chain writer | Inline | `audit_write_chain()` is internal; no application role may execute it | Single implementation, no direct access |
+| Cross-tenant references | Not addressed | Composite foreign keys `(tenant_id, id)` on every tenant-to-tenant reference | FK checks bypass RLS; without this, a tenant could reference another tenant's row by ID |
+| Object ownership | Not specified | All objects owned by `sentinel_owner` (NOLOGIN, non-superuser, NOBYPASSRLS); `ALTER DEFAULT PRIVILEGES` revokes PUBLIC EXECUTE | Security-definer functions don't run as superuser |
+| SECURITY DEFINER hygiene | Not specified | Every function pins `search_path`; a test enforces it | Classic privilege-escalation vector |
+| Insert-only tables | `audit_log` plus the D2 list | Row and TRUNCATE triggers on `audit_log`, `repo_revisions` and `release_events`; they block even superusers unless the trigger is disabled | Defence in depth beyond grants |
+| `tenant_memberships` | S I U for `r_api` | S I U **D** for `r_api` | Removing a member must be possible; the change is recorded in the matrix and tested |
+| Tenant transactions | Not specified | `tenant_transaction()` and `system_transaction()` refuse to run inside an open transaction | `SET LOCAL` lasts until the end of the top-level transaction, so a nested scope would leak its tenant and role |
+| Tenancy limit | Not stated | The tenant context is a session setting, so RLS is a guard against bugs, not an authentication boundary (04 §9 item 8) | Honest threat model |
+| Tenant erasure (V1) | Delete tenant rows | Insert-only triggers will need a controlled erasure path (a SECURITY DEFINER maintenance function). Audit rows stay, because their payloads carry no personal data. | Recorded for B60b |
+

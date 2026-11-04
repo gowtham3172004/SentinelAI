@@ -14,12 +14,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "alembic>=1.13",
     "httpx>=0.27",
     "platformdirs>=4.2",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "pyyaml>=6.0",
     "rich>=13.7",
+    "sqlalchemy>=2.0",
     "typer>=0.12",
 ]
 
@@ -55,7 +58,7 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "SIM", "RUF", "PL", "PT", "TID", "
 ignore = ["PLR0913", "PLR2004"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "PLR0915"]
+"tests/**" = ["S101", "S105", "S106", "PLR0915", "PLR0917"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -73,6 +76,7 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = ["-ra", "--strict-markers", "-m", "not live"]
 markers = [
     "at(id): links a test to an acceptance-test ID from docs/design/11-definition-of-done.md",
+    "db: needs PostgreSQL (SENTINELAI_TEST_ADMIN_URL or the compose dev stack); skipped otherwise",
     "live: calls real model providers with real keys; opt-in (SENTINELAI_LIVE_TESTS=1, -m live)",
 ]
 
