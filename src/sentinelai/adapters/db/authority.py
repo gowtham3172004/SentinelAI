@@ -20,7 +20,8 @@ PRIVILEGES: tuple[Privilege, ...] = ("select", "insert", "update", "delete", "tr
 Scope = Literal["platform", "tenant", "audit_chain"]
 
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
-_FUNCTION = re.compile(r"^[a-z_][a-z0-9_]{0,62}\((?:[a-z]+(?:, [a-z]+)*)?\)$")
+_TYPE = r"[a-z_][a-z0-9_]*(?:\[\])?"
+_FUNCTION = re.compile(rf"^[a-z_][a-z0-9_]{{0,62}}\((?:{_TYPE}(?:, {_TYPE})*)?\)$")
 
 
 class TableAuthority(BaseModel):
@@ -30,6 +31,8 @@ class TableAuthority(BaseModel):
     insert_only: bool = False
     sequence: str | None = None
     grants: dict[str, tuple[Privilege, ...]] = Field(default_factory=dict)
+    # Column-level UPDATE: lets a role change some columns but never, e.g., a status column.
+    update_columns: dict[str, tuple[str, ...]] = Field(default_factory=dict)
 
 
 def _check_table(table: str, spec: TableAuthority, known: set[str]) -> None:
@@ -47,6 +50,15 @@ def _check_table(table: str, spec: TableAuthority, known: set[str]) -> None:
             raise ValueError(f"{table}/{role}: insert-only table cannot grant update/delete")
         if spec.scope == "audit_chain" and granted - {"select"}:
             raise ValueError(f"{table}/{role}: audit tables are written only via functions")
+    for role, columns in spec.update_columns.items():
+        if role not in known:
+            raise ValueError(f"{table}: unknown role {role!r}")
+        if spec.insert_only or spec.scope == "audit_chain":
+            raise ValueError(f"{table}/{role}: column updates on an insert-only table")
+        if "update" in spec.grants.get(role, ()):
+            raise ValueError(f"{table}/{role}: table-level and column-level UPDATE together")
+        if not columns or any(not _IDENT.match(c) for c in columns):
+            raise ValueError(f"{table}/{role}: invalid update column list")
 
 
 class AuthorityMatrix(BaseModel):
@@ -76,6 +88,9 @@ class AuthorityMatrix(BaseModel):
     def allows(self, role: str, table: str, privilege: Privilege) -> bool:
         return privilege in self.tables[table].grants.get(role, ())
 
+    def column_updates(self, role: str, table: str) -> tuple[str, ...]:
+        return self.tables[table].update_columns.get(role, ())
+
     def tables_with_scope(self, scope: Scope) -> list[str]:
         return [name for name, spec in self.tables.items() if spec.scope == scope]
 
@@ -101,6 +116,9 @@ def grants_sql(matrix: AuthorityMatrix, tables: list[str] | None = None) -> str:
             if privileges:
                 ordered = [p.upper() for p in PRIVILEGES if p in privileges]
                 lines.append(f"GRANT {', '.join(ordered)} ON TABLE {table} TO {role};")
+            columns = spec.update_columns.get(role, ())
+            if columns:
+                lines.append(f"GRANT UPDATE ({', '.join(columns)}) ON TABLE {table} TO {role};")
         if spec.sequence:
             writers = [r for r in matrix.roles if "insert" in spec.grants.get(r, ())]
             lines.append(f"REVOKE ALL ON SEQUENCE {spec.sequence} FROM PUBLIC;")

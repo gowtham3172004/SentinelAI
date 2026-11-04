@@ -9,7 +9,7 @@
 #         audit_chain  RLS ENABLED (not forced, so the SECURITY DEFINER writer sees all chains)
 # Rules enforced by the loader: no TRUNCATE for any role; insert_only tables get no UPDATE or
 # DELETE; audit_chain tables get SELECT at most (writes only through functions).
-version: 1
+version: 2  # v2: migration 0002 (telemetry, detection, incidents)
 
 roles:
   - r_telemetry
@@ -55,7 +55,7 @@ tables:
   services:
     scope: tenant
     grants:
-      r_telemetry: [select]
+      r_telemetry: [select, insert]   # auto-discovery of services seen in telemetry
       r_api: [select, insert, update]
       r_orch: [select]
       r_codeintel: [select]
@@ -129,6 +129,102 @@ tables:
       r_maint: [select, update]
       r_readonly: [select]
 
+  ingest_sources:
+    scope: tenant
+    grants:
+      r_telemetry: [select, insert, update]
+      r_readonly: [select]
+
+  ingest_batches:
+    scope: tenant
+    insert_only: true
+    grants:
+      r_telemetry: [select, insert]
+      r_readonly: [select]
+
+  dead_letters:
+    scope: tenant
+    insert_only: true
+    sequence: dead_letters_id_seq
+    grants:
+      r_telemetry: [select, insert]
+      r_readonly: [select]
+
+  log_events:
+    scope: tenant
+    insert_only: true
+    sequence: log_events_id_seq
+    grants:
+      r_telemetry: [select, insert]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  request_windows:
+    scope: tenant
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  exception_windows:
+    scope: tenant
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  fingerprints:
+    scope: tenant
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  incidents:
+    scope: tenant
+    sequence: incident_seq
+    grants:
+      r_telemetry: [select, insert]
+      r_api: [select]
+      r_orch: [select]
+      r_deployer: [select]
+      r_readonly: [select]
+    update_columns:   # status changes only through incident_transition()
+      r_telemetry: [severity, title, routes, class_prior, class_prior_rule, class_prior_reasons,
+                    code_patch_candidate, suspected_release_id, last_signal_at, signal_count]
+
+  incident_signals:
+    scope: tenant
+    insert_only: true
+    grants:
+      r_telemetry: [select, insert]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  incident_fingerprints:
+    scope: tenant
+    grants:
+      r_telemetry: [select, insert, update]
+      r_api: [select]
+      r_orch: [select]
+      r_readonly: [select]
+
+  noise_rules:
+    scope: tenant
+    grants:
+      r_telemetry: [select]
+      r_api: [select, insert, update, delete]
+      r_readonly: [select]
+
+  incident_transition_rules:
+    scope: platform
+    grants: {}   # read only by incident_transition() (owner)
+
 functions:
   "current_tenant()":
     [r_telemetry, r_api, r_orch, r_codeintel, r_broker, r_deployer, r_harness, r_maint, r_readonly]
@@ -136,3 +232,9 @@ functions:
     [r_telemetry, r_api, r_orch, r_codeintel, r_broker, r_deployer]
   "audit_append_platform(text, text, text, text, text, jsonb)":
     [r_api, r_maint]
+  "incident_transition(uuid, incident_status, text)":
+    [r_telemetry, r_api, r_orch]
+  "add_int_arrays(integer[], integer[])":
+    [r_telemetry]
+  "retention_purge(timestamptz)":
+    [r_maint]

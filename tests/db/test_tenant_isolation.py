@@ -19,7 +19,7 @@ from sentinelai.adapters.db.session import (
     system_transaction,
     tenant_transaction,
 )
-from tests.db.conftest import SeededTenant, scoped
+from tests.db.conftest import ZERO_BUCKETS, SeededTenant, scoped
 
 MATRIX = load_matrix()
 TENANT_TABLES = MATRIX.tables_with_scope("tenant")
@@ -33,7 +33,12 @@ def readers(table: str) -> list[str]:
 class WriteCase:
     role: str
     insert: Callable[[SeededTenant, SeededTenant], tuple[str, tuple[object, ...]]]
-    update: str | None  # statement updating rows of the tenant given as parameter
+    update: tuple[str, str] | None = None  # (statement for tenant %s, column showing tampering)
+    has_parent: bool = True  # whether the row references a parent row (cross-tenant FK test)
+
+
+def _tok() -> str:
+    return secrets.token_hex(4)
 
 
 # insert(row_owner, parent_owner): a row claiming row_owner's tenant, pointing at parent_owner's
@@ -41,39 +46,103 @@ class WriteCase:
 WRITES: dict[str, WriteCase] = {
     "repositories": WriteCase(
         "r_api",
-        lambda o, _p: (
-            "INSERT INTO repositories (tenant_id, name, url) VALUES (%s, %s, 'git@x:y')",
-            (o.id, "repo-" + secrets.token_hex(4)),
-        ),
-        "UPDATE repositories SET default_branch = 'tampered' WHERE tenant_id = %s",
+        lambda o, _p: ("INSERT INTO repositories (tenant_id, name, url) VALUES (%s, %s, 'git@x:y')",
+                       (o.id, "repo-" + _tok())),
+        ("UPDATE repositories SET default_branch = 'tampered' WHERE tenant_id = %s",
+         "default_branch"),
+        has_parent=False,
     ),
     "services": WriteCase(
         "r_api",
-        lambda o, p: (
-            "INSERT INTO services (tenant_id, name, environment, repository_id) "
-            "VALUES (%s, %s, 'prod', %s)",
-            (o.id, "svc-" + secrets.token_hex(4), p.repository),
-        ),
-        "UPDATE services SET app_root = '/tampered' WHERE tenant_id = %s",
+        lambda o, p: ("INSERT INTO services (tenant_id, name, environment, repository_id) "
+                      "VALUES (%s, %s, 'prod', %s)", (o.id, "svc-" + _tok(), p.repository)),
+        ("UPDATE services SET app_root = '/tampered' WHERE tenant_id = %s", "app_root"),
     ),
     "repo_revisions": WriteCase(
         "r_codeintel",
-        lambda o, p: (
-            "INSERT INTO repo_revisions (tenant_id, repository_id, sha) VALUES (%s, %s, %s)",
-            (o.id, p.repository, secrets.token_hex(20)),
-        ),
-        None,
+        lambda o, p: ("INSERT INTO repo_revisions (tenant_id, repository_id, sha) "
+                      "VALUES (%s, %s, %s)", (o.id, p.repository, secrets.token_hex(20))),
     ),
     "release_events": WriteCase(
         "r_telemetry",
-        lambda o, p: (
-            "INSERT INTO release_events (tenant_id, service_id, kind, version, "
-            "idempotency_key, occurred_at) VALUES (%s, %s, 'deploy', 'v2', %s, now())",
-            (o.id, p.service, secrets.token_hex(8)),
-        ),
-        None,
+        lambda o, p: ("INSERT INTO release_events (tenant_id, service_id, kind, version, "
+                      "idempotency_key, occurred_at) VALUES (%s, %s, 'deploy', 'v2', %s, now())",
+                      (o.id, p.service, _tok())),
     ),
-}
+    "ingest_sources": WriteCase(
+        "r_telemetry",
+        lambda o, _p: ("INSERT INTO ingest_sources (tenant_id, name, kind) "
+                       "VALUES (%s, %s, 'http')", (o.id, "src-" + _tok())),
+        ("UPDATE ingest_sources SET cursor = '{\"tampered\": 1}' WHERE tenant_id = %s", "cursor"),
+        has_parent=False,
+    ),
+    "ingest_batches": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO ingest_batches (tenant_id, source_id, batch_id, records) "
+                      "VALUES (%s, %s, %s, 1)", (o.id, p.source, _tok())),
+    ),
+    "dead_letters": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO dead_letters (tenant_id, source_id, reason, raw) "
+                      "VALUES (%s, %s, 'r', 'x')", (o.id, p.source)),
+    ),
+    "log_events": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO log_events (tenant_id, service_id, ts, level, message) "
+                      "VALUES (%s, %s, now(), 'info', 'm')", (o.id, p.service)),
+    ),
+    "request_windows": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO request_windows (tenant_id, service_id, route, window_start, "
+                      "requests, errors_5xx, errors_4xx, latency) VALUES (%s, %s, %s, now(), "
+                      "1, 0, 0, %s)", (o.id, p.service, "/r-" + _tok(), ZERO_BUCKETS)),
+        ("UPDATE request_windows SET route = 'tampered' WHERE tenant_id = %s", "route"),
+    ),
+    "exception_windows": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO exception_windows (tenant_id, service_id, fingerprint, "
+                      "window_start, occurrences) VALUES (%s, %s, %s, now(), 1)",
+                      (o.id, p.service, _tok())),
+        ("UPDATE exception_windows SET fingerprint = 'tampered' WHERE tenant_id = %s",
+         "fingerprint"),
+    ),
+    "fingerprints": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO fingerprints (tenant_id, service_id, fingerprint, "
+                      "exception_type, sample_message, top_frames, library_only, first_seen, "
+                      "last_seen, occurrences) VALUES (%s, %s, %s, 'E', 'm', '[]', false, now(), "
+                      "now(), 1)", (o.id, p.service, _tok())),
+        ("UPDATE fingerprints SET sample_message = 'tampered' WHERE tenant_id = %s",
+         "sample_message"),
+    ),
+    "incidents": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO incidents (tenant_id, service_id, severity, title, first_seen, "
+                      "last_signal_at) VALUES (%s, %s, 'sev3', 't', now(), now())",
+                      (o.id, p.service)),
+        ("UPDATE incidents SET title = 'tampered' WHERE tenant_id = %s", "title"),
+    ),
+    "incident_signals": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO incident_signals (tenant_id, incident_id, service_id, kind, "
+                      "key, fired_at, window_start, window_end) VALUES (%s, %s, %s, 'LATENCY', "
+                      "%s, now(), now(), now())", (o.id, p.incident, p.service, _tok())),
+    ),
+    "incident_fingerprints": WriteCase(
+        "r_telemetry",
+        lambda o, p: ("INSERT INTO incident_fingerprints (tenant_id, incident_id, fingerprint, "
+                      "first_seen, last_seen) VALUES (%s, %s, %s, now(), now())",
+                      (o.id, p.incident, _tok())),
+        ("UPDATE incident_fingerprints SET occurrences = 999 WHERE tenant_id = %s",
+         "occurrences"),
+    ),
+    "noise_rules": WriteCase(
+        "r_api",
+        lambda o, p: ("INSERT INTO noise_rules (tenant_id, service_id, fingerprint) "
+                      "VALUES (%s, %s, %s)", (o.id, p.service, _tok())),
+        ("UPDATE noise_rules SET reason = 'tampered' WHERE tenant_id = %s", "reason"),
+    ),
+}  # fmt: skip
 
 
 def test_write_cases_cover_every_tenant_table() -> None:
@@ -116,7 +185,7 @@ def test_cannot_insert_rows_for_another_tenant(
 
 
 @pytest.mark.at("AT-TEN-01")
-@pytest.mark.parametrize("table", [t for t in TENANT_TABLES if t != "repositories"])
+@pytest.mark.parametrize("table", [t for t in TENANT_TABLES if WRITES[t].has_parent])
 def test_cannot_reference_another_tenants_rows(
     admin: psycopg.Connection, two_tenants: tuple[SeededTenant, SeededTenant], table: str
 ) -> None:
@@ -136,13 +205,14 @@ def test_cannot_update_another_tenants_rows(
     a, b = two_tenants
     case = WRITES[table]
     assert case.update is not None
+    statement, column = case.update
     with scoped(admin, case.role, a.id):
-        assert admin.execute(case.update, (b.id,)).rowcount == 0
-        assert admin.execute(case.update, (a.id,)).rowcount == 1
-    column = "default_branch" if table == "repositories" else "app_root"
+        assert admin.execute(statement, (b.id,)).rowcount == 0
+        assert admin.execute(statement, (a.id,)).rowcount == 1
     row = admin.execute(f"SELECT {column} FROM {table} WHERE tenant_id = %s", (b.id,)).fetchone()  # noqa: S608
     assert row is not None
     assert "tampered" not in str(row[0])
+    assert "999" not in str(row[0])
 
 
 @pytest.mark.at("AT-TEN-01")
@@ -269,5 +339,5 @@ def _random_operation(
         if case.update is None:
             return
         with scoped(admin, case.role, context.id):
-            changed = admin.execute(case.update, (target.id,)).rowcount
+            changed = admin.execute(case.update[0], (target.id,)).rowcount
         assert changed == (1 if target is context else 0)

@@ -8,6 +8,12 @@ import pytest
 from sentinelai.adapters.db import migrate
 from tests.db.conftest import temporary_database
 
+HEAD = "0002"
+TELEMETRY_TABLES = {
+    "ingest_sources", "ingest_batches", "dead_letters", "log_events", "request_windows",
+    "exception_windows", "fingerprints", "incidents", "incident_signals",
+    "incident_fingerprints", "noise_rules", "incident_transition_rules",
+}  # fmt: skip
 APP_TABLES = {
     "tenants", "users", "tenant_memberships", "repositories", "services", "repo_revisions",
     "release_events", "audit_log", "jobs", "outbox_events",
@@ -48,7 +54,7 @@ def _public_objects(url: str) -> dict[str, set[str]]:
 def test_upgrade_downgrade_upgrade(admin_base_url: str) -> None:
     with temporary_database(admin_base_url, migrated=False) as url:
         migrate.upgrade(url)
-        assert migrate.current_revision(url) == "0001"
+        assert migrate.current_revision(url) == HEAD
         after_up = _public_objects(url)
         assert after_up["tables"] >= APP_TABLES
         assert len(after_up["enums"]) == 17
@@ -66,7 +72,7 @@ def test_upgrade_downgrade_upgrade(admin_base_url: str) -> None:
         }
 
         migrate.upgrade(url)
-        assert migrate.current_revision(url) == "0001"
+        assert migrate.current_revision(url) == HEAD
         assert _public_objects(url) == after_up
 
 
@@ -86,3 +92,16 @@ def test_failed_migration_leaves_no_partial_schema(admin_base_url: str) -> None:
             version_table = conn.execute("SELECT to_regclass('public.alembic_version')").fetchone()
         assert version_table is not None
         assert version_table[0] is None
+
+
+@pytest.mark.at("AT-DB-01")
+def test_each_revision_steps_up_and_down_cleanly(admin_base_url: str) -> None:
+    with temporary_database(admin_base_url, migrated=False) as url:
+        migrate.upgrade(url, "0001")
+        at_0001 = _public_objects(url)
+        assert not (TELEMETRY_TABLES & at_0001["tables"])
+        migrate.upgrade(url, "0002")
+        assert _public_objects(url)["tables"] >= TELEMETRY_TABLES
+        migrate.downgrade(url, "0001")
+        assert migrate.current_revision(url) == "0001"
+        assert _public_objects(url) == at_0001  # 0001 objects untouched by 0002's downgrade

@@ -9,7 +9,12 @@ from sentinelai.adapters.db.authority import PRIVILEGES, load_matrix
 from sentinelai.domain.enums import PG_ENUMS
 
 MATRIX = load_matrix()
-SECURITY_DEFINERS = {"audit_append", "audit_append_platform"}
+SECURITY_DEFINERS = {
+    "audit_append",
+    "audit_append_platform",
+    "incident_transition",
+    "retention_purge",
+}
 
 
 @pytest.mark.at("AT-DB-02")
