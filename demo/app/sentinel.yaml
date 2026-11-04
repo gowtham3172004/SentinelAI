@@ -3,6 +3,8 @@
 version: 1
 service: shop-api
 source_roots: [shop/]
+telemetry:
+  app_root: /app            # path prefix in production stack traces
 tests_root: tests/
 regression_test_dir: tests/sentinel/
 endpoints:

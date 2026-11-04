@@ -24,12 +24,17 @@ def test_packaged_matrix_is_valid() -> None:
     matrix = load_matrix()
     assert "r_maint" in matrix.roles
     assert matrix.tables["audit_log"].scope == "audit_chain"
-    assert set(matrix.tables_with_scope("tenant")) == {
+    assert {
         "services",
         "repositories",
         "repo_revisions",
         "release_events",
-    }
+        "incidents",
+        "log_events",
+        "request_windows",
+    } <= set(matrix.tables_with_scope("tenant"))
+    assert matrix.tables["incident_transition_rules"].scope == "platform"
+    assert "status" not in matrix.column_updates("r_telemetry", "incidents")
 
 
 def test_allows_lookup() -> None:
@@ -79,6 +84,7 @@ def test_grants_sql_is_deterministic_and_complete() -> None:
     assert f"GRANT EXECUTE ON FUNCTION {platform_fn} TO r_api, r_maint;" in sql
     # every non-empty grant cell appears exactly once
     cells = sum(1 for spec in matrix.tables.values() for privs in spec.grants.values() if privs)
+    cells += sum(len(spec.update_columns) for spec in matrix.tables.values())
     assert sql.count(" ON TABLE ") - sql.count("REVOKE ALL ON TABLE") == cells
 
 

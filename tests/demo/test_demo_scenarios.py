@@ -261,6 +261,16 @@ def test_reset_restores_baseline_and_is_idempotent(ws: democtl.Workspace) -> Non
     assert kinds == ["deploy", "deploy", "rollback", "config_change", "config_change"]
 
 
+@pytest.mark.at("AT-DEMO-07")
+def test_init_force_recreates_the_workspace(ws: democtl.Workspace) -> None:
+    """Regression: git's read-only object files made --force fail on Windows."""
+    democtl.inject(ws, "S01")
+    baseline = democtl.init(ws, force=True)
+    assert democtl.head(ws) == (baseline, "v1.0.0")
+    assert ws.state()["scenario"] is None
+    assert len(ws.events_file.read_text("utf-8").splitlines()) == 1
+
+
 def test_cli_status_and_scenarios(
     ws: democtl.Workspace, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -28,6 +28,7 @@ import os
 import random
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -242,11 +243,22 @@ def read_env(ws: Workspace) -> dict[str, str]:
 # --------------------------------------------------------------------------- operations
 
 
+def _force_remove(function: Any, path: str, _exc: BaseException) -> None:
+    """Git marks object files read-only; Windows refuses to delete read-only files."""
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
+
+
 def init(ws: Workspace, *, force: bool = False) -> str:
     if ws.root.exists():
         if not force:
             raise DemoError(f"{ws.root} exists: use --force to recreate it")
-        shutil.rmtree(ws.root)
+        try:
+            shutil.rmtree(ws.root, onexc=_force_remove)
+        except OSError as exc:  # e.g. a running container still holds the log file open
+            raise DemoError(
+                f"cannot remove {ws.root} ({exc}); run `democtl.py down` first"
+            ) from exc
     shutil.copytree(APP_DIR, ws.repo, ignore=_IGNORE)
     for directory in (ws.runtime, ws.logs):
         directory.mkdir(parents=True, exist_ok=True)

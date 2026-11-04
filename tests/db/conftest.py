@@ -121,11 +121,18 @@ def scoped(
 
 @dataclass(frozen=True)
 class SeededTenant:
+    """Exactly one row per tenant-scoped table, so isolation tests can count precisely."""
+
     id: UUID
     repository: UUID
     service: UUID
     revision: UUID
     release: UUID
+    source: UUID
+    incident: UUID
+
+
+ZERO_BUCKETS = "{0,0,0,0,0,0,0,0,0,0,0,0}"
 
 
 def seed_tenant(conn: psycopg.Connection, slug: str | None = None) -> SeededTenant:
@@ -159,7 +166,48 @@ def seed_tenant(conn: psycopg.Connection, slug: str | None = None) -> SeededTena
         "RETURNING id",
         (tenant, service, revision, secrets.token_hex(8)),
     )
-    return SeededTenant(tenant, repo, service, revision, release)
+    source = one(
+        "INSERT INTO ingest_sources (tenant_id, name, kind) VALUES (%s, 'file:app.log', 'file') "
+        "RETURNING id",
+        (tenant,),
+    )
+    statements: tuple[tuple[str, tuple[object, ...]], ...] = (
+        ("INSERT INTO ingest_batches (tenant_id, source_id, batch_id, records) "
+         "VALUES (%s, %s, 'b1', 1)", (tenant, source)),
+        ("INSERT INTO dead_letters (tenant_id, source_id, reason, raw) VALUES (%s, %s, 'r', 'x')",
+         (tenant, source)),
+        ("INSERT INTO log_events (tenant_id, service_id, ts, level, message) "
+         "VALUES (%s, %s, now(), 'info', 'hello')", (tenant, service)),
+        ("INSERT INTO request_windows (tenant_id, service_id, route, window_start, requests, "
+         "errors_5xx, errors_4xx, latency) VALUES (%s, %s, '/orders', now(), 1, 0, 0, %s)",
+         (tenant, service, ZERO_BUCKETS)),
+        ("INSERT INTO exception_windows (tenant_id, service_id, fingerprint, window_start, "
+         "occurrences) VALUES (%s, %s, 'fp', now(), 1)", (tenant, service)),
+        ("INSERT INTO fingerprints (tenant_id, service_id, fingerprint, exception_type, "
+         "sample_message, top_frames, library_only, first_seen, last_seen, occurrences) "
+         "VALUES (%s, %s, 'fp', 'E', 'm', '[]', false, now(), now(), 1)", (tenant, service)),
+        ("INSERT INTO noise_rules (tenant_id, service_id, fingerprint) VALUES (%s, %s, 'fp')",
+         (tenant, service)),
+    )  # fmt: skip
+    for statement, params in statements:
+        conn.execute(statement, params)
+    incident = one(
+        "INSERT INTO incidents (tenant_id, service_id, severity, title, first_seen, "
+        "last_signal_at) VALUES (%s, %s, 'sev3', 'seeded', now(), now()) RETURNING id",
+        (tenant, service),
+    )
+    conn.execute(
+        "INSERT INTO incident_signals (tenant_id, incident_id, service_id, kind, key, fired_at, "
+        "window_start, window_end) VALUES (%s, %s, %s, 'ERROR_RATE', '/orders', now(), now(), "
+        "now())",
+        (tenant, incident, service),
+    )
+    conn.execute(
+        "INSERT INTO incident_fingerprints (tenant_id, incident_id, fingerprint, first_seen, "
+        "last_seen) VALUES (%s, %s, 'fp', now(), now())",
+        (tenant, incident),
+    )
+    return SeededTenant(tenant, repo, service, revision, release, source, incident)
 
 
 @pytest.fixture

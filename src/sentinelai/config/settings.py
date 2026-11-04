@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     # Migrations and audit verification: an owner/administrator connection, never a service's.
     admin_database_url: SecretStr | None = None
+    tenant: str = "default"
+    ingest_token: SecretStr | None = None  # bearer token for the HTTP ingest endpoints
+    release_webhook_secret: SecretStr | None = None  # HMAC secret for release events
     http_timeout_s: float = Field(default=60.0, gt=0, le=600)
 
     @property

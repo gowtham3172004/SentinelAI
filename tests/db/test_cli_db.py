@@ -30,7 +30,7 @@ def _password(url: str) -> str:
 def test_db_current(admin_env: str) -> None:
     result = runner.invoke(app, ["db", "current"])
     assert result.exit_code == 0, result.output
-    assert "0001" in result.stdout
+    assert "0002" in result.stdout
     assert _password(admin_env) not in result.output
 
 

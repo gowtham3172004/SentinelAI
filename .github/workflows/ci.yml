@@ -44,7 +44,7 @@ jobs:
           ./gitleaks git --redact --verbose --exit-code 1 .
 
   database:
-    name: database tests (PostgreSQL 16 + pgvector)
+    name: full suite + coverage (PostgreSQL 16 + pgvector)
     needs: static
     runs-on: ubuntu-latest
     services:
@@ -63,12 +63,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
-      - name: Database acceptance tests (must run, never skip)
+      # The complete suite (unit + integration + database + demo) runs here, so this is where
+      # coverage is measured and gated. Nothing may be skipped.
+      - name: Full suite with coverage gate (must run, never skip)
         shell: bash
         run: |
           set -o pipefail
-          uv run pytest tests/db -m db -rs | tee db.log
-          if grep -q "SKIPPED" db.log; then echo "::error::database tests were skipped"; exit 1; fi
+          uv run pytest -rs --cov --cov-report=term --cov-fail-under=85 | tee suite.log
+          if grep -q "SKIPPED" suite.log; then echo "::error::tests were skipped"; exit 1; fi
 
   test:
     name: tests (${{ matrix.os }})
@@ -82,9 +84,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
-      # Database tests are skipped here (no service containers on Windows/macOS runners);
-      # the dedicated database job above runs them and fails if any is skipped.
-      - run: uv run pytest -m "not db and not live" --cov --cov-report=term --cov-fail-under=80
+      # Portability check on every OS. Database tests need a service container (Linux only), so
+      # they run in the job above, which also owns the coverage gate for the whole suite.
+      - run: uv run pytest -m "not db and not live"
       - name: CLI smoke test
         run: |
           uv run sentinelai version
