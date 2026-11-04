@@ -36,6 +36,80 @@ services:
       - "127.0.0.1:4318:4318"   # OTLP/HTTP
       - "127.0.0.1:13133:13133" # health_check extension
 
+  # ------------------------------------------------------------------ Sentinel (profile sentinel)
+  # docker compose --profile core --profile sentinel up -d --build
+  # Development wiring: services log in as the database superuser and drop to their group role
+  # per transaction. Production: one login role per service (docs/guides/connecting-your-project.md).
+  sentinel-migrate:
+    profiles: ["sentinel"]
+    build: .
+    image: sentinelai:dev
+    command: ["db", "upgrade"]
+    environment:
+      SENTINELAI_ADMIN_DATABASE_URL: postgresql://postgres:${SENTINELAI_DEV_DB_PASSWORD:?set in .env}@postgres:5432/${SENTINELAI_DB_NAME:-sentinel}
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  sentinel-ingest:
+    profiles: ["sentinel"]
+    image: sentinelai:dev
+    restart: unless-stopped
+    command: ["serve", "ingest", "--host", "0.0.0.0", "--port", "8090",
+              "--target-config", "/config/sentinel.yaml"]
+    environment: &sentinel-env
+      SENTINELAI_DATABASE_URL: postgresql://postgres:${SENTINELAI_DEV_DB_PASSWORD:?set in .env}@postgres:5432/${SENTINELAI_DB_NAME:-sentinel}
+      SENTINELAI_INGEST_TOKEN: ${SENTINELAI_INGEST_TOKEN:?set in .env}
+      SENTINELAI_RELEASE_WEBHOOK_SECRET: ${SENTINELAI_RELEASE_WEBHOOK_SECRET:-}
+    volumes:
+      - ${SENTINELAI_TARGET_CONFIG:-./demo/app/sentinel.yaml}:/config/sentinel.yaml:ro
+    ports:
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      sentinel-migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  sentinel-detect:
+    profiles: ["sentinel"]
+    image: sentinelai:dev
+    restart: unless-stopped
+    command: ["detect", "run", "--target-config", "/config/sentinel.yaml"]
+    environment: *sentinel-env
+    volumes:
+      - ${SENTINELAI_TARGET_CONFIG:-./demo/app/sentinel.yaml}:/config/sentinel.yaml:ro
+    depends_on:
+      sentinel-migrate: {condition: service_completed_successfully}
+
+  # Sentinel watching the demo on its own (profile sentinel-demo): tails the shop's JSON log file
+  # and democtl's release events, exactly as it would tail any project's files.
+  sentinel-tail-demo-logs:
+    profiles: ["sentinel-demo"]
+    image: sentinelai:dev
+    restart: unless-stopped
+    command: ["ingest", "file", "/demo/logs/shop-api.jsonl", "--follow",
+              "--target-config", "/config/sentinel.yaml"]
+    environment: *sentinel-env
+    volumes:
+      - ./demo/app/sentinel.yaml:/config/sentinel.yaml:ro
+      - ./.demo/logs:/demo/logs:ro
+    depends_on:
+      sentinel-migrate: {condition: service_completed_successfully}
+
+  sentinel-tail-demo-events:
+    profiles: ["sentinel-demo"]
+    image: sentinelai:dev
+    restart: unless-stopped
+    command: ["ingest", "events", "/demo/events.jsonl", "--follow"]
+    environment: *sentinel-env
+    volumes:
+      - ./.demo/events.jsonl:/demo/events.jsonl:ro
+    depends_on:
+      sentinel-migrate: {condition: service_completed_successfully}
+
   # ------------------------------------------------------------------ demo target (profile demo)
   # The observed "shop" system. Run `uv run python demo/democtl.py init` first; see demo/README.md.
   shop-db:

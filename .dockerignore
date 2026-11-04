@@ -1,0 +1,14 @@
+.venv
+.demo
+out
+**/__pycache__
+**/.pytest_cache
+.git
+.mypy_cache
+.ruff_cache
+.hypothesis
+.env
+.env.*
+docs
+tests
+demo

@@ -24,6 +24,7 @@ These documents amend D1 and D2. Where they conflict, the amendment wins, and ev
 | [design/12-traceability.md](design/12-traceability.md) | Every requirement → component → phase → acceptance tests |
 | [design/13-phase-0-plan.md](design/13-phase-0-plan.md) | Phase 0 tasks and exit gate |
 | [adr/](adr/README.md) | Architecture decision records |
+| [guides/connecting-your-project.md](guides/connecting-your-project.md) | Connecting any project: logs, release events, `sentinel.yaml`, operating at scale |
 
 ## ID conventions
 - `FR-nn` / `NFR-nn`: requirements (01–20 from D2; 21+ new).

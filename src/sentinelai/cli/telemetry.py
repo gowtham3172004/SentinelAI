@@ -80,7 +80,7 @@ def _target(path: Path | None) -> TargetConfig:
 
 @ingest_app.command("file")
 def ingest_file(
-    path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="JSON lines log file.")],
+    path: Annotated[Path, typer.Argument(dir_okay=False, help="JSON lines log file.")],
     target_config: TargetOption = None,
     service: Annotated[str | None, typer.Option(help="Service name if records lack one.")] = None,
     source: Annotated[str | None, typer.Option(help="Source name (default: file:<name>).")] = None,
@@ -99,6 +99,12 @@ def ingest_file(
     totals = [0, 0]
     with conn:
         while True:
+            if not path.is_file():
+                if not follow:
+                    err_console.print(f"[red]error:[/red] {path} does not exist")
+                    raise typer.Exit(1)
+                time.sleep(poll)  # wait for the application to create its log file
+                continue
             chunk = read_new_lines(path, store.source_cursor(name, "file"))
             if chunk.lines or chunk.rotated:
                 result = pipeline.ingest_lines(name, "file", chunk.lines, cursor=chunk.cursor)
@@ -113,16 +119,27 @@ def ingest_file(
 
 @ingest_app.command("events")
 def ingest_events(
-    path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="NDJSON events.")],
+    path: Annotated[Path, typer.Argument(help="NDJSON deploy/config events.")],
+    follow: Annotated[bool, typer.Option(help="Keep watching the file.")] = False,
+    poll: Annotated[float, typer.Option(help="Seconds between reads when following.")] = 2.0,
 ) -> None:
-    """Record deploy/config events (idempotent on idempotency_key)."""
+    """Record deploy/config events (idempotent on idempotency_key; re-reading is safe)."""
     settings = _settings()
     conn, tenant = _open(settings)
+    pipeline = IngestPipeline(PgTelemetryStore(conn, tenant, role=ROLE))
     with conn:
-        result = IngestPipeline(PgTelemetryStore(conn, tenant, role=ROLE)).ingest_changes(
-            path.read_text(encoding="utf-8").splitlines()
-        )
-    console.print(f"events: recorded {result.accepted} new, rejected {result.rejected}")
+        while True:
+            if path.is_file():
+                result = pipeline.ingest_changes(path.read_text(encoding="utf-8").splitlines())
+                if result.accepted or not follow:
+                    console.print(f"events: recorded {result.accepted} new, "
+                                  f"rejected {result.rejected}")  # fmt: skip
+            elif not follow:
+                err_console.print(f"[red]error:[/red] {path} does not exist")
+                raise typer.Exit(1)
+            if not follow:
+                break
+            time.sleep(poll)
 
 
 # --------------------------------------------------------------------------- detect

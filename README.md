@@ -2,7 +2,11 @@
 
 An evidence-driven production reliability engineer. It detects incidents, investigates them against the deployed code, reproduces failures in a sandbox, and prepares verified fixes that a human approves. When the evidence doesn't justify a code change, it says so.
 
-> **Status: Phase 0 (foundations).** What works today is the terminal CLI, the provider-independent model gateway core, and the environment checks. The investigation workflow is built in later phases. See [docs/design/10-roadmap.md](docs/design/10-roadmap.md).
+> **Status: milestone 2 (telemetry ingestion and deterministic incident detection).**
+> - **Working today:** ingest logs from any stack (JSON files, NDJSON/HTTP, OTLP), fingerprint errors, detect incidents, correlate them with deploys and config changes, and classify code vs configuration vs infrastructure failures, with reasons.
+> - **Not yet built:** the investigation, reproduction and patch workflow comes in later milestones.
+>
+> **Connect your project:** [docs/guides/connecting-your-project.md](docs/guides/connecting-your-project.md). Roadmap: [docs/design/10-roadmap.md](docs/design/10-roadmap.md).
 
 ## Quick start (Windows, Linux, macOS)
 
