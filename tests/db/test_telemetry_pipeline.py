@@ -229,6 +229,35 @@ def test_incident_opens_once_with_job_event_and_audit(
     assert one(admin_in, "SELECT count(*) FROM incidents") == 1
 
 
+@pytest.mark.at("AT-DET-04")
+def test_suspected_release_is_the_deploy_just_before_the_first_failure(
+    store: PgTelemetryStore, admin_in: psycopg.Connection
+) -> None:
+    """Regression (found live): the faulty deploy happened seconds before the first failure,
+    inside the exception rule's 120 s lookback. Onset must be the first failure, not the
+    lookback start, or the previous (healthy) release gets blamed."""
+    onset = T0 + timedelta(hours=1)
+    pipeline(store).ingest_lines(
+        "http:r", "http", traffic(onset - timedelta(minutes=30), 1790, 1, None)
+    )
+    deploys = [
+        json.dumps({"kind": "deploy", "service": "shop-api", "version": version,
+                    "occurred_at": (onset - timedelta(seconds=seconds)).isoformat(),
+                    "idempotency_key": version})
+        for version, seconds in (("v1.0.0", 40), ("v1.1.0", 5))
+    ]  # fmt: skip
+    IngestPipeline(store).ingest_changes(deploys)
+    pipeline(store).ingest_lines("http:r", "http", traffic(onset, 60, 4, error_every=4))
+    assert IncidentManager(store).tick(onset + timedelta(seconds=60)).opened
+    version, reasons = one(
+        admin_in,
+        "SELECT r.version, i.class_prior_reasons FROM incidents i "
+        "JOIN release_events r ON r.id = i.suspected_release_id",
+    )
+    assert version == "v1.1.0"
+    assert any("after deploy v1.1.0" in reason for reason in reasons)
+
+
 @pytest.mark.at("AT-INC-05")
 def test_quiet_incident_self_resolves_and_recurrence_reopens(
     store: PgTelemetryStore, admin_in: psycopg.Connection

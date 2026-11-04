@@ -1,0 +1,7 @@
+# Reviewed false positives only. Each entry is pinned to one commit, file, rule and line, so
+# the same pattern anywhere else (or later) is still reported.
+#
+# Public sample JWT (jwt.io example) used as a redaction-test fixture in the first telemetry
+# commit; not a credential. The fixture is now assembled at runtime (tests/unit/domain/
+# test_redaction.py), so no current file contains a token literal.
+a8b0f9391b1654b533fd15a275b249cb875179a1:tests/unit/domain/test_redaction.py:jwt:10

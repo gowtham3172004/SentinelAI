@@ -43,6 +43,27 @@ class IncidentPolicy:
     rate_window: timedelta = timedelta(minutes=10)
     investigate_severities: tuple[str, ...] = ("sev1", "sev2", "sev3")
     evidence_lookback: timedelta = timedelta(hours=2)
+    new_failure_window: timedelta = timedelta(minutes=15)
+
+
+def estimate_onset(
+    signals: list[Signal],
+    fingerprints: list[FingerprintEvidence],
+    at: datetime,
+    new_failure_window: timedelta,
+) -> datetime:
+    """When the failure actually began, not when the rules' lookback windows start.
+
+    The first sighting of a *new* failure (a fingerprint first seen within the window) is the
+    most precise anchor; release and configuration correlation depend on it. Without one, the
+    start of the error-rate window is the best estimate. A lookback start must never be used:
+    a 120 s exception window would place the onset before a deploy that caused the failure.
+    """
+    new = [f.first_seen for f in fingerprints if f.first_seen >= at - new_failure_window]
+    if new:
+        return min(new)
+    windows = [s.window_start for s in signals if s.kind in ("ERROR_RATE", "LATENCY")]
+    return min(windows) if windows else at - timedelta(seconds=30)
 
 
 @dataclass
@@ -70,11 +91,13 @@ def _related(
     return False
 
 
-def _title(signals: list[Signal], dominant_type: str | None) -> str:
+def _title(signals: list[Signal], dominant: FingerprintEvidence | None) -> str:
     routes = sorted({s.key for s in signals if s.kind in ("ERROR_RATE", "LATENCY")})
+    if not routes and dominant is not None:
+        routes = sorted(dominant.routes)  # the failing requests' own route
     where = routes[0] if routes else "service"
-    if dominant_type:
-        return f"{dominant_type} on {where}"[:200]
+    if dominant is not None:
+        return f"{dominant.exception_type} on {where}"[:200]
     worst = max(
         (s for s in signals if s.kind == "ERROR_RATE"), key=lambda s: s.observed, default=None
     )
@@ -173,7 +196,7 @@ class IncidentManager:
         at: datetime,
         result: TickResult,
     ) -> None:
-        onset = min([s.window_start for s in active] + [f.first_seen for f in evidence_fps])
+        onset = estimate_onset(active, evidence_fps, at, self._policy.new_failure_window)
         if target is not None:
             onset = min(onset, target.first_seen)
         evidence = IncidentEvidence(
@@ -188,7 +211,7 @@ class IncidentManager:
         dominant = max(evidence_fps, key=lambda f: f.occurrences, default=None)
         routes = tuple(sorted({s.key for s in active if s.kind != "EXCEPTION_SPIKE"}
                               | {r for f in evidence_fps for r in f.routes}))[:20]  # fmt: skip
-        title = _title(active, dominant.exception_type if dominant else None)
+        title = _title(active, dominant)
         fingerprints = {
             f.fingerprint: (f.first_seen, f.first_seen, f.occurrences) for f in evidence_fps
         }

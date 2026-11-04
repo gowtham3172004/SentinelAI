@@ -1,24 +1,39 @@
 from __future__ import annotations
 
+import base64
+import json
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from sentinelai.domain.redaction import redact_text, redact_value
 
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+# Fixtures are assembled at runtime so the repository never contains secret-shaped literals
+# (keeps the secret scanner meaningful: any finding in the tree is a real problem).
+_JWT = ".".join((_b64url(json.dumps({"alg": "HS256"}).encode()),
+                 _b64url(json.dumps({"sub": "test-user"}).encode()),
+                 _b64url(b"not-a-real-signature-0123456789")))  # fmt: skip
+_KEY_HEADER = "-----BEGIN " + "RSA PRIVATE KEY-----"
+_KEY_FOOTER = "-----END " + "RSA PRIVATE KEY-----"
+
 SECRETS = {
-    "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
-    "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+    "jwt": f"session {_JWT} expired",
     "bearer": "Authorization: Bearer abcdef0123456789xyz",
     "api_key": "key gsk_" + "A" * 40,
     "email": "contact jane.doe@example.com now",
     "url_credentials": "postgresql://shop:hunter2pass@db:5432/shop",
     "secret_assignment": "login failed password=s3cr3t-Value user=bob",
     "card": "paid with 4111 1111 1111 1111 yesterday",
-    "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK\n-----END RSA PRIVATE KEY-----",
+    "private_key": f"{_KEY_HEADER}\nMIIBOgIBAAJBAK\n{_KEY_FOOTER}",
 }  # fmt: skip
 LEAKED = {
-    "jwt": "dozjgNryP4J3",
+    "jwt": _JWT.rsplit(".", 1)[1][:12],
     "bearer": "abcdef0123456789xyz",
     "api_key": "A" * 40,
     "email": "jane.doe@example.com",

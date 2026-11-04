@@ -2,7 +2,8 @@
 
 Endpoints, chosen so any production stack can send telemetry without custom code:
 - ``POST /v1/ingest/logs?source=NAME``: NDJSON or a JSON array of log objects (Vector, Fluent
-  Bit, Logstash, custom shippers). Requires an ``Idempotency-Key`` header (batch id).
+  Bit, Logstash, custom shippers). The batch id is the ``Idempotency-Key`` header if sent,
+  otherwise the body hash, so a retried identical batch is never counted twice.
 - ``POST /v1/otlp/logs``: OTLP/HTTP JSON from any OpenTelemetry Collector or SDK. The batch id
   is the body hash, so retried identical payloads are ignored.
 - ``POST /v1/events/releases``: deploy/config events from CI/CD, signed with HMAC-SHA256 over
@@ -124,9 +125,11 @@ def create_ingest_app(
         idempotency_key: str | None = Header(default=None),
     ) -> dict[str, Any]:
         authorise(authorization)
-        if not idempotency_key or len(idempotency_key) > 128:
-            raise HTTPException(400, "Idempotency-Key header (1-128 chars) is required")
-        body = (await read_body(request)).decode("utf-8", "replace")
+        if idempotency_key is not None and not 1 <= len(idempotency_key) <= 128:
+            raise HTTPException(400, "Idempotency-Key must be 1-128 characters")
+        raw = await read_body(request)
+        batch_id = idempotency_key or "body-" + hashlib.sha256(raw).hexdigest()[:40]
+        body = raw.decode("utf-8", "replace")
         stripped = body.lstrip()
         if stripped.startswith("["):
             try:
@@ -138,7 +141,7 @@ def create_ingest_app(
             lines = body.splitlines()
         with store() as s:
             result = pipeline(s).ingest_objects(f"http:{source}", "http", parse_json_lines(lines),
-                                                batch_id=idempotency_key)  # fmt: skip
+                                                batch_id=batch_id)  # fmt: skip
         return {"accepted": result.accepted, "rejected": result.rejected,
                 "duplicate": result.duplicate}  # fmt: skip
 

@@ -60,15 +60,17 @@ def count(db_url: str, tenant: uuid.UUID, query: str) -> int:
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
-def test_logs_endpoint_requires_token_and_idempotency_key(client: TestClient) -> None:
+def test_logs_endpoint_requires_token_and_valid_source(client: TestClient) -> None:
     body = "\n".join(traffic(T0, 2, 2, None))
     assert client.post("/v1/ingest/logs?source=vector", content=body).status_code == 401
     wrong = {"Authorization": "Bearer nope"}
     assert (
         client.post("/v1/ingest/logs?source=vector", content=body, headers=wrong).status_code == 401
     )
+    too_long = {**AUTH, "Idempotency-Key": "k" * 200}
     assert (
-        client.post("/v1/ingest/logs?source=vector", content=body, headers=AUTH).status_code == 400
+        client.post("/v1/ingest/logs?source=vector", content=body, headers=too_long).status_code
+        == 400
     )
     assert client.post("/v1/ingest/logs?source=bad%20name", content=body,
                        headers={**AUTH, "Idempotency-Key": "k"}).status_code == 422  # fmt: skip
@@ -96,6 +98,17 @@ def test_ndjson_and_json_array_batches_are_idempotent(
         == 3
     )
     assert count(db_url, tenant_slug[1], "SELECT sum(requests) FROM request_windows") == 23
+
+
+def test_batches_without_a_key_are_deduplicated_by_content(
+    client: TestClient, db_url: str, tenant_slug: tuple[str, uuid.UUID]
+) -> None:
+    """Shippers that can only send static headers (Vector, Fluent Bit) still get idempotency."""
+    body = "\n".join(traffic(T0, 2, 5, None))
+    first = client.post("/v1/ingest/logs?source=fluentbit", content=body, headers=AUTH)
+    retry = client.post("/v1/ingest/logs?source=fluentbit", content=body, headers=AUTH)
+    assert (first.json()["accepted"], retry.json()["duplicate"]) == (10, True)
+    assert count(db_url, tenant_slug[1], "SELECT sum(requests) FROM request_windows") == 10
 
 
 def test_otlp_endpoint_ingests_and_ignores_retries(
