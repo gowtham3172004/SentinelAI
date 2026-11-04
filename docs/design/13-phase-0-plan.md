@@ -66,7 +66,7 @@ These are deliberately deferred: the reference app (Phase 1), telemetry ingest, 
 | 2026-11-03 | P0-07 Migration 0001 | **Done** | Roles, enums, tenancy (FORCE RLS, fail-closed `current_tenant()`, composite FKs), audit chains, queue and outbox tables. AT-DB-01/02/03, AT-TEN-01/02/03 and AT-AUD-01/02/03 pass. 4 planted defects all caught. |
 | 2026-11-03 | P0-08 `audit verify` CLI | **Done** | `sentinelai audit verify [--chain] [--json]`, exit 1 on the first broken row |
 | 2026-11-03 | P0-10 Tenancy plumbing | **Done** | `tenant_transaction` / `system_transaction` (transaction-local context; refuse to nest) |
-| 2026-11-03 | P0-09 Queue and outbox code | **Pending** | Tables exist in 0001; claim, lease, reaper, dispatcher and NOTIFY are the next increment |
+| 2026-11-03 | P0-09 Queue and outbox code | **Done** | `adapters/db/queue.py`: enqueue (dedupe, IDs-only payloads), SKIP LOCKED claim, lease, heartbeat, reaper with `job.dead` alert, worker with graceful stop; outbox with at-least-once dispatch and NOTIFY-on-commit. AT-Q-01 (16 workers × 10,000 jobs, no double claim, 17 s), AT-Q-02/03/04 pass. |
 
 ## 6. Order of the first increments after approval
 

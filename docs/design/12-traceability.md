@@ -9,6 +9,22 @@ Every original requirement (D1 goals, non-goals, principles, metrics, abstention
 
 None are weakened.
 
+## 0. Owner-approved deferrals (OD-16, ADR-023)
+
+These requirements are **partially met in the lean MVP** by the simpler mechanism named. The remainder is deferred, not dropped. Their acceptance tests below stay in the catalogue and are marked deferred until implemented.
+
+| Req | Met in the MVP by | Deferred part | Deferred tests |
+|---|---|---|---|
+| FR-15 | PR-only delivery + post-deploy watch | Managed staging, canary, automatic rollback | AT-DLV-03/04/05/06 |
+| FR-21 | Basic fail-closed tenant isolation (migration 0001) | Tenant admin, erasure, envelope encryption, quotas UI | AT-TEN-05, AT-PRV-02 |
+| FR-27 | Single signed evidence bundle + `proof verify` | Per-link multi-signer DSSE | AT-PRF-02 (per-link part) |
+| FR-28 | Signed approval token (FR-14 fully met) | Passkeys | AT-APR-04 |
+| FR-29 | Small scenario set + harness | 40 scenarios, ablations, public release | B57/B57a |
+| FR-32 | `TelemetrySource` port + built-in store | External adapters, Alertmanager | n/a |
+| NFR-11 | Backup/restore commands + restore test | PITR, key escrow | n/a |
+| NFR-15 | Health endpoints + doctor | Dead-man switch | AT-OPS-06 |
+| NFR-19 | `kid` on all signatures | Rotation drill | AT-OPS-07 |
+
 ## 1. D2 functional requirements
 
 | Req | Summary | Status | Component(s) | Phase | Acceptance tests |

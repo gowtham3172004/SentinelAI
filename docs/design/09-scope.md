@@ -2,6 +2,33 @@
 
 Supersedes the tier lists in D1 §7 and §14 where they differ. **Every original item is listed below. Nothing is dropped.** The D1 §14 cut line still applies, unchanged: *never* drop the sandbox security model, signed approvals, the failure-signature rule or the abstention scenarios. The following are added to that protected list: tenant isolation enforcement, the egress policy, and broker-side signature recomputation.
 
+## 0. Lean MVP, the current target (OD-16, ADR-023)
+
+**Sections 1–3 below are the v1.1 plan. Where they conflict with ADR-023, ADR-023 wins.**
+
+"Ready" means a user can do all of the following on one machine with Docker Compose:
+1. Run the reference app with an injected fault.
+2. Watch Sentinel detect the incident.
+3. Read an evidence-cited investigation, including the rejected rival hypotheses.
+4. See the failure reproduced in the sandbox, a minimal patch verified by the gates, and a risk rating.
+5. Approve with a signed token.
+6. Get a PR carrying the report and a verifiable evidence bundle.
+
+It also means non-code incidents end in a report only, with no patch.
+
+Build order for the lean MVP:
+
+| # | Increment | Notes |
+|---|---|---|
+| 1 | Queue and outbox (P0-09) | Lean: claim, lease, reaper, dedupe, outbox and NOTIFY |
+| 2 | Reference app and fault injection | Small FastAPI shop and worker; 3 initial scenarios (S01 code defect, S21 configuration, S33 infrastructure) |
+| 3 | Telemetry ingest, fingerprints, detector, incidents | Logs and metrics via OTLP; rules from D2 §6 |
+| 4 | Code intelligence | git object reads, search, ast symbols, blame, suspect range |
+| 5 | Investigation workflow | Finite state machine, LLM gateway (Groq/Gemini), prediction battery, citations, report |
+| 6 | Sandbox broker, reproduction and verification gates | Hardened Docker; gVisor or cloud VM before hostile runs |
+| 7 | Signed approval, evidence bundle, PR delivery, webhook | ADR-023 simplifications |
+| 8 | Backup/restore commands; small benchmark | Harness over the scenario set |
+
 ## 1. MVP (Phases 0–5): "verified, approved proposal for a real team"
 
 | Area | In the MVP |

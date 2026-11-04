@@ -26,5 +26,6 @@ Format: `docs/adr/NNNN-title.md` (template: `0000-template.md`). Status values: 
 | [020](0020-async-broker.md) | Async broker execution with broker-side signature recomputation | Proposed | Findings C1, D1 |
 | [021](0021-delivery-modes.md) | Delivery modes: PR-only and managed | Proposed | Finding E2 |
 | [022](0022-listen-notify.md) | PostgreSQL LISTEN/NOTIFY replaces Redis in the control plane | Proposed | Finding E3 |
+| [023](0023-pragmatic-scope.md) | Pragmatic scope: lean MVP, explicit deferrals | Accepted | OD-16 |
 
 ADRs 001–012 get their own files in Phase 0 (step B04), summarising the D2 sections above.
